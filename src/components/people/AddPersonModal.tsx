@@ -21,6 +21,7 @@ interface User {
 
 export function AddPersonModal({ isOpen, onClose }: AddPersonModalProps) {
     const { user } = useAuth();
+    const [isLoading, setIsLoading] = useState(false);
     const [availableUsers, setAvailableUsers] = useState<User[]>([]);
     const [availableGroups, setAvailableGroups] = useState<any[]>([]); // Dynamic Groups
 
