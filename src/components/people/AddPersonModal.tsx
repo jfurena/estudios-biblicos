@@ -21,10 +21,9 @@ interface User {
 
 export function AddPersonModal({ isOpen, onClose }: AddPersonModalProps) {
     const { user } = useAuth();
-    const [isLoading, setIsLoading] = useState(false);
     const [availableUsers, setAvailableUsers] = useState<User[]>([]);
     const [availableGroups, setAvailableGroups] = useState<any[]>([]); // Dynamic Groups
-    const [loadingGroups, setLoadingGroups] = useState(false);
+
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
@@ -47,7 +46,7 @@ export function AddPersonModal({ isOpen, onClose }: AddPersonModalProps) {
             const users = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
-            }));
+            })) as User[];
             setAvailableUsers(users);
 
             // Set default inCharge to current user if not set

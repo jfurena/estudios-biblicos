@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Users, BookOpen, Volume2, User, ChevronLeft, Calendar, MapPin, Clock, Plus, MessageSquare, Pencil, Trash2 } from 'lucide-react';
+import { Users, BookOpen, ChevronLeft, Calendar, MapPin, Clock, Plus, MessageSquare, Pencil, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { doc, onSnapshot, collection, query, where, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -131,6 +131,26 @@ export default function GroupDetail() {
             membersUnsub();
         };
     }, [id]);
+
+    const handleDeleteEvent = async (eventId: string) => {
+        if (!window.confirm("¿Estás seguro de que deseas eliminar este evento?")) return;
+        try {
+            await deleteDoc(doc(db, "events", eventId));
+        } catch (err) {
+            console.error(err);
+            alert("Error al eliminar el evento.");
+        }
+    };
+
+    const handleDeleteAnnouncement = async (annId: string) => {
+        if (!window.confirm("¿Estás seguro de que deseas eliminar este comunicado?")) return;
+        try {
+            await deleteDoc(doc(db, "announcements", annId));
+        } catch (err) {
+            console.error(err);
+            alert("Error al eliminar el comunicado.");
+        }
+    };
 
     if (loading) {
         return <div className="p-8 text-white">Cargando...</div>;
