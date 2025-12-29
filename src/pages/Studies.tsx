@@ -148,7 +148,8 @@ export default function Studies() {
                 </div>
 
                 {/* Table */}
-                <div className="overflow-x-auto pb-40">
+                {/* Content */}
+                <div className="pb-40">
                     {loading ? (
                         <div className="flex items-center justify-center py-20">
                             <Loader2 className="h-8 w-8 text-emerald-500 animate-spin" />
@@ -159,149 +160,229 @@ export default function Studies() {
                             <button onClick={() => setIsAddPersonOpen(true)} className="text-emerald-400 hover:underline mt-2">Añade la primera</button>
                         </div>
                     ) : (
-                        <table className="w-full text-left text-sm">
-                            <thead>
-                                <tr className="border-b border-slate-800 bg-slate-950/50 text-slate-400">
-                                    <th className="px-6 py-4 font-medium">Nombre</th>
-                                    <th className="px-6 py-4 font-medium">Estado</th>
-                                    <th className="px-6 py-4 font-medium">Estudio Actual</th>
-                                    <th className="px-6 py-4 font-medium">Charla (Grupo)</th>
-                                    <th className="px-6 py-4 font-medium">Encargado</th>
-                                    <th className="px-6 py-4 font-medium">Apoyo</th>
-                                    <th className="px-6 py-4 font-medium">Contacto</th>
-                                    <th className="px-6 py-4 font-medium"></th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-800">
+                        <>
+                            {/* Desktop Table */}
+                            <div className="hidden md:block overflow-x-auto">
+                                <table className="w-full text-left text-sm">
+                                    <thead>
+                                        <tr className="border-b border-slate-800 bg-slate-950/50 text-slate-400">
+                                            <th className="px-6 py-4 font-medium">Nombre</th>
+                                            <th className="px-6 py-4 font-medium">Estado</th>
+                                            <th className="px-6 py-4 font-medium">Estudio Actual</th>
+                                            <th className="px-6 py-4 font-medium">Charla (Grupo)</th>
+                                            <th className="px-6 py-4 font-medium">Encargado</th>
+                                            <th className="px-6 py-4 font-medium">Apoyo</th>
+                                            <th className="px-6 py-4 font-medium">Contacto</th>
+                                            <th className="px-6 py-4 font-medium"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-800">
+                                        {studies.map((study, i) => (
+                                            <motion.tr
+                                                key={study.id}
+                                                initial={{ opacity: 0, x: -10 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                transition={{ delay: i * 0.05 }}
+                                                className="group hover:bg-slate-800/30 transition-colors relative"
+                                            >
+                                                <td className="px-6 py-4 font-medium text-white flex items-center gap-2">
+                                                    <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-xs text-slate-300 border border-slate-700">
+                                                        {study.name.substring(0, 2).toUpperCase()}
+                                                    </div>
+                                                    {study.name}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={cn("px-2.5 py-0.5 rounded-full text-xs font-semibold border", getStatusColor(study.status))}>
+                                                        {study.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-300">{study.current}</td>
+                                                <td className="px-6 py-4 text-slate-400">{study.group}</td>
+                                                <td className="px-6 py-4 text-slate-300">{study.inCharge}</td>
+                                                <td className="px-6 py-4 text-slate-400">{study.support}</td>
+                                                <td className="px-6 py-4">
+                                                    <a href={`tel:${study.contact}`} className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300">
+                                                        <Phone className="h-3 w-3" />
+                                                        {study.contact}
+                                                        <ExternalLink className="h-3 w-3 opacity-50" />
+                                                    </a>
+                                                </td>
+                                                <td className="px-6 py-4 text-right relative">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setActiveDropdown(activeDropdown === study.id ? null : study.id);
+                                                            setShowStatusSubmenu(null);
+                                                        }}
+                                                        className={cn(
+                                                            "p-2 rounded-lg transition-colors",
+                                                            activeDropdown === study.id ? "bg-slate-800 text-white" : "text-slate-500 hover:text-white"
+                                                        )}
+                                                    >
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    </button>
+
+                                                    {/* Dropdown Menu (Desktop) */}
+                                                    <AnimatePresence>
+                                                        {activeDropdown === study.id && (
+                                                            <motion.div
+                                                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                                style={{ zIndex: 50 }}
+                                                                className="absolute right-10 top-8 w-56 bg-slate-950 border border-slate-800 rounded-xl shadow-2xl overflow-visible text-left"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                <div className="px-2 py-2">
+                                                                    <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                                                                        Acciones
+                                                                    </div>
+                                                                    <button className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg flex items-center gap-2 transition-colors">
+                                                                        Editar
+                                                                    </button>
+
+                                                                    {/* Status Submenu Trigger */}
+                                                                    <div
+                                                                        className="relative"
+                                                                        onMouseEnter={() => setShowStatusSubmenu(study.id)}
+                                                                        onMouseLeave={() => setShowStatusSubmenu(null)}
+                                                                    >
+                                                                        <button
+                                                                            className={cn(
+                                                                                "w-full text-left px-3 py-2 text-sm rounded-lg flex items-center justify-between transition-colors",
+                                                                                showStatusSubmenu === study.id ? "bg-emerald-500/20 text-emerald-400" : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                                                                            )}
+                                                                        >
+                                                                            <span className="flex items-center gap-2">
+                                                                                Cambiar Estado
+                                                                            </span>
+                                                                            <ChevronRight className="h-3.5 w-3.5" />
+                                                                        </button>
+
+                                                                        {/* Status Submenu */}
+                                                                        <AnimatePresence>
+                                                                            {showStatusSubmenu === study.id && (
+                                                                                <motion.div
+                                                                                    initial={{ opacity: 0, x: -10 }}
+                                                                                    animate={{ opacity: 1, x: 0 }}
+                                                                                    exit={{ opacity: 0, x: -10 }}
+                                                                                    className="absolute right-full top-0 mr-2 w-40 bg-slate-950 border border-slate-800 rounded-xl shadow-xl overflow-hidden z-50"
+                                                                                >
+                                                                                    <div className="p-1.5 space-y-0.5">
+                                                                                        {['Guest', 'Active', 'Pending', 'Paused', 'Completed', 'Inactive'].map((status) => (
+                                                                                            <button
+                                                                                                key={status}
+                                                                                                className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg transition-colors"
+                                                                                            >
+                                                                                                {status}
+                                                                                            </button>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                </motion.div>
+                                                                            )}
+                                                                        </AnimatePresence>
+                                                                    </div>
+
+                                                                    <button className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg flex items-center gap-2 transition-colors">
+                                                                        Ver Historial
+                                                                    </button>
+                                                                </div>
+
+                                                                <div className="border-t border-slate-800 my-1"></div>
+
+                                                                <div className="px-2 py-2">
+                                                                    <button
+                                                                        onClick={() => handleDelete(study.id)}
+                                                                        className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 hover:text-red-400 rounded-lg flex items-center gap-2 transition-colors"
+                                                                    >
+                                                                        Eliminar Permanentemente
+                                                                    </button>
+                                                                </div>
+                                                            </motion.div>
+                                                        )}
+                                                    </AnimatePresence>
+                                                </td>
+                                            </motion.tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Mobile Cards */}
+                            <div className="md:hidden space-y-4 px-4 pt-4">
                                 {studies.map((study, i) => (
-                                    <motion.tr
+                                    <motion.div
                                         key={study.id}
-                                        initial={{ opacity: 0, x: -10 }}
-                                        animate={{ opacity: 1, x: 0 }}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: i * 0.05 }}
-                                        className="group hover:bg-slate-800/30 transition-colors relative"
+                                        className="bg-slate-800/30 border border-slate-800 rounded-xl p-4 flex flex-col gap-3 shadow-sm"
                                     >
-                                        <td className="px-6 py-4 font-medium text-white flex items-center gap-2">
-                                            <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-xs text-slate-300 border border-slate-700">
-                                                {study.name.substring(0, 2).toUpperCase()}
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-sm font-bold text-slate-300 border border-slate-700">
+                                                    {study.name.substring(0, 2).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-semibold text-white">{study.name}</h3>
+                                                    <p className="text-xs text-slate-400">{study.group}</p>
+                                                </div>
                                             </div>
-                                            {study.name}
-                                        </td>
-                                        <td className="px-6 py-4">
+                                            <div className="relative">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setActiveDropdown(activeDropdown === study.id ? null : study.id);
+                                                    }}
+                                                    className="p-1 px-2 hover:bg-slate-700 rounded text-slate-400"
+                                                >
+                                                    <MoreHorizontal className="h-5 w-5" />
+                                                </button>
+                                                {/* Dropdown Menu (Mobile) */}
+                                                <AnimatePresence>
+                                                    {activeDropdown === study.id && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                            style={{ zIndex: 50 }}
+                                                            className="absolute right-0 top-8 w-48 bg-slate-950 border border-slate-800 rounded-xl shadow-2xl overflow-visible text-left"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <div className="px-2 py-2">
+                                                                <button
+                                                                    onClick={() => handleDelete(study.id)}
+                                                                    className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 rounded-lg"
+                                                                >
+                                                                    Eliminar
+                                                                </button>
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-2">
                                             <span className={cn("px-2.5 py-0.5 rounded-full text-xs font-semibold border", getStatusColor(study.status))}>
                                                 {study.status}
                                             </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-300">{study.current}</td>
-                                        <td className="px-6 py-4 text-slate-400">{study.group}</td>
-                                        <td className="px-6 py-4 text-slate-300">{study.inCharge}</td>
-                                        <td className="px-6 py-4 text-slate-400">{study.support}</td>
-                                        <td className="px-6 py-4">
-                                            <a href={`tel:${study.contact}`} className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300">
-                                                <Phone className="h-3 w-3" />
-                                                {study.contact}
-                                                <ExternalLink className="h-3 w-3 opacity-50" />
-                                            </a>
-                                        </td>
-                                        <td className="px-6 py-4 text-right relative">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setActiveDropdown(activeDropdown === study.id ? null : study.id);
-                                                    setShowStatusSubmenu(null);
-                                                }}
-                                                className={cn(
-                                                    "p-2 rounded-lg transition-colors",
-                                                    activeDropdown === study.id ? "bg-slate-800 text-white" : "text-slate-500 hover:text-white"
-                                                )}
-                                            >
-                                                <MoreHorizontal className="h-4 w-4" />
-                                            </button>
+                                        </div>
 
-                                            {/* Dropdown Menu */}
-                                            <AnimatePresence>
-                                                {activeDropdown === study.id && (
-                                                    <motion.div
-                                                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                                                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                                        style={{ zIndex: 50 }}
-                                                        className="absolute right-10 top-8 w-56 bg-slate-950 border border-slate-800 rounded-xl shadow-2xl overflow-visible text-left"
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                        <div className="px-2 py-2">
-                                                            <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                                                                Acciones
-                                                            </div>
-                                                            <button className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg flex items-center gap-2 transition-colors">
-                                                                Editar
-                                                            </button>
-
-                                                            {/* Status Submenu Trigger */}
-                                                            <div
-                                                                className="relative"
-                                                                onMouseEnter={() => setShowStatusSubmenu(study.id)}
-                                                                onMouseLeave={() => setShowStatusSubmenu(null)}
-                                                            >
-                                                                <button
-                                                                    className={cn(
-                                                                        "w-full text-left px-3 py-2 text-sm rounded-lg flex items-center justify-between transition-colors",
-                                                                        showStatusSubmenu === study.id ? "bg-emerald-500/20 text-emerald-400" : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                                                                    )}
-                                                                >
-                                                                    <span className="flex items-center gap-2">
-                                                                        Cambiar Estado
-                                                                    </span>
-                                                                    <ChevronRight className="h-3.5 w-3.5" />
-                                                                </button>
-
-                                                                {/* Status Submenu */}
-                                                                <AnimatePresence>
-                                                                    {showStatusSubmenu === study.id && (
-                                                                        <motion.div
-                                                                            initial={{ opacity: 0, x: -10 }}
-                                                                            animate={{ opacity: 1, x: 0 }}
-                                                                            exit={{ opacity: 0, x: -10 }}
-                                                                            className="absolute right-full top-0 mr-2 w-40 bg-slate-950 border border-slate-800 rounded-xl shadow-xl overflow-hidden z-50"
-                                                                        >
-                                                                            <div className="p-1.5 space-y-0.5">
-                                                                                {['Guest', 'Active', 'Pending', 'Paused', 'Completed', 'Inactive'].map((status) => (
-                                                                                    <button
-                                                                                        key={status}
-                                                                                        className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg transition-colors"
-                                                                                    >
-                                                                                        {status}
-                                                                                    </button>
-                                                                                ))}
-                                                                            </div>
-                                                                        </motion.div>
-                                                                    )}
-                                                                </AnimatePresence>
-                                                            </div>
-
-                                                            <button className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg flex items-center gap-2 transition-colors">
-                                                                Ver Historial
-                                                            </button>
-                                                        </div>
-
-                                                        <div className="border-t border-slate-800 my-1"></div>
-
-                                                        <div className="px-2 py-2">
-                                                            <button
-                                                                onClick={() => handleDelete(study.id)}
-                                                                className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-500/10 hover:text-red-400 rounded-lg flex items-center gap-2 transition-colors"
-                                                            >
-                                                                Eliminar Permanentemente
-                                                            </button>
-                                                        </div>
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
-                                        </td>
-                                    </motion.tr>
+                                        <div className="grid grid-cols-2 gap-2 text-sm mt-1">
+                                            <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800/50">
+                                                <span className="text-xs text-slate-500 block mb-1">Apoyo</span>
+                                                <span className="text-slate-300 truncate block">{study.support}</span>
+                                            </div>
+                                            <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800/50">
+                                                <span className="text-xs text-slate-500 block mb-1">Encargado</span>
+                                                <span className="text-slate-300 truncate block">{study.inCharge}</span>
+                                            </div>
+                                        </div>
+                                    </motion.div>
                                 ))}
-                            </tbody>
-                        </table>
+                            </div>
+                        </>
                     )}
                 </div>
                 <AddPersonModal isOpen={isAddPersonOpen} onClose={() => setIsAddPersonOpen(false)} />
