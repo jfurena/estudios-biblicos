@@ -1,16 +1,25 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, BookOpen, Calendar, Book, User as UserIcon, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, BookOpen, Calendar, Book, User as UserIcon, Settings, LogOut, MessageSquare } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../context/AuthContext';
+import { getRoleLabel } from '../../lib/constants';
 
 interface SidebarProps {
-    isDarkMode: boolean;
-    toggleTheme: () => void;
     onClose?: () => void;
 }
 
-export function Sidebar({ isDarkMode, toggleTheme, onClose }: SidebarProps) {
-    const { user, logout } = useAuth();
+const navItems = [
+    { icon: LayoutDashboard, label: 'Inicio', to: '/' },
+    { icon: Users, label: 'Personas', to: '/people' },
+    { icon: BookOpen, label: 'Estudios', to: '/studies' },
+    { icon: Calendar, label: 'Agenda', to: '/schedule' },
+    { icon: MessageSquare, label: 'Mensajes', to: '/messages' },
+    { icon: Book, label: 'Guía de Estudios', to: '/guide' },
+    { icon: UserIcon, label: 'Perfil', to: '/profile' },
+];
+
+export function Sidebar({ onClose }: SidebarProps) {
+    const { user, profile, logout } = useAuth();
     const navigate = useNavigate();
 
     const handleLogout = async () => {
@@ -22,14 +31,7 @@ export function Sidebar({ isDarkMode, toggleTheme, onClose }: SidebarProps) {
         }
     };
 
-    const navItems = [
-        { icon: LayoutDashboard, label: 'Dashboard', to: '/' },
-        { icon: Users, label: 'Personas', to: '/people' },
-        { icon: BookOpen, label: 'Estudios', to: '/studies' },
-        { icon: Calendar, label: 'Agenda', to: '/schedule' },
-        { icon: Book, label: 'Guía de Estudios', to: '/guide' },
-        { icon: UserIcon, label: 'Perfil', to: '/profile' },
-    ];
+    const displayName = profile?.name || user?.displayName || 'Usuario';
 
     return (
         <aside className="h-full w-64 bg-slate-950 text-slate-100 flex flex-col border-r border-slate-800">
@@ -44,6 +46,7 @@ export function Sidebar({ isDarkMode, toggleTheme, onClose }: SidebarProps) {
                         <NavLink
                             key={item.to}
                             to={item.to}
+                            end={item.to === '/'}
                             onClick={onClose}
                             className={({ isActive }) =>
                                 cn(
@@ -60,63 +63,52 @@ export function Sidebar({ isDarkMode, toggleTheme, onClose }: SidebarProps) {
                     ))}
 
                     <div className="mt-8 px-3">
-                        <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Admin</div>
-                        <NavLink
-                            to="/admin"
-                            onClick={onClose}
-                            className={({ isActive }) =>
-                                cn(
-                                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                                    isActive
-                                        ? "bg-emerald-500/10 text-emerald-400"
-                                        : "text-slate-400 hover:bg-slate-900 hover:text-slate-100"
-                                )
-                            }
-                        >
-                            <Settings className="h-5 w-5" />
-                            Admin
-                        </NavLink>
+                        <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Administración</div>
                     </div>
+                    <NavLink
+                        to="/admin"
+                        onClick={onClose}
+                        className={({ isActive }) =>
+                            cn(
+                                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                                isActive
+                                    ? "bg-emerald-500/10 text-emerald-400"
+                                    : "text-slate-400 hover:bg-slate-900 hover:text-slate-100"
+                            )
+                        }
+                    >
+                        <Settings className="h-5 w-5" />
+                        Admin
+                    </NavLink>
                 </nav>
             </div>
 
-            <div className="border-t border-slate-800 p-4 space-y-4 bg-slate-950/50 backdrop-blur-xl">
+            <div className="border-t border-slate-800 p-4 space-y-3 bg-slate-950/50 backdrop-blur-xl">
                 {user && (
-                    <div className="flex items-center gap-3 px-2 mb-2">
-                        <div className="h-8 w-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-sm font-bold">
-                            {user.displayName ? user.displayName[0].toUpperCase() : user.email?.[0].toUpperCase()}
+                    <button
+                        onClick={() => { navigate('/profile'); onClose?.(); }}
+                        className="w-full flex items-center gap-3 px-2 text-left rounded-lg hover:bg-slate-900 py-1.5 transition-colors"
+                    >
+                        <div className="h-8 w-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-sm font-bold overflow-hidden shrink-0">
+                            {profile?.photoURL ? (
+                                <img src={profile.photoURL} alt={displayName} className="h-full w-full object-cover" />
+                            ) : (
+                                (displayName[0] || user.email?.[0] || '?').toUpperCase()
+                            )}
                         </div>
                         <div className="flex-1 overflow-hidden">
-                            <p className="text-sm font-medium text-white truncate">{user.displayName || 'Usuario'}</p>
-                            <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                            <p className="text-sm font-medium text-white truncate">{displayName}</p>
+                            <p className="text-xs text-slate-500 truncate">{getRoleLabel(profile?.role)} · {user.email}</p>
                         </div>
-                    </div>
-                )}
-
-                <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-400">Dark Mode</span>
-                    <button
-                        onClick={toggleTheme}
-                        className={cn(
-                            "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-slate-950",
-                            isDarkMode ? "bg-emerald-600" : "bg-slate-700"
-                        )}
-                    >
-                        <span
-                            className={cn(
-                                "inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200",
-                                isDarkMode ? "translate-x-6" : "translate-x-1"
-                            )}
-                        />
                     </button>
-                </div>
+                )}
 
                 <button
                     onClick={handleLogout}
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
                 >
                     <LogOut className="h-5 w-5" />
-                    Sign Out
+                    Cerrar sesión
                 </button>
             </div>
         </aside>

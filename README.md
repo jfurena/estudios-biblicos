@@ -1,73 +1,64 @@
-# React + TypeScript + Vite
+# Bible Talks Tracker
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicación para dar seguimiento a estudios bíblicos: personas en estudio, grupos (charlas), agenda, comunicados, mensajes entre usuarios, guía de estudios y herramientas de administración.
 
-Currently, two official plugins are available:
+- **Frontend:** React + TypeScript + Vite + Tailwind (`src/`)
+- **Backend:** Node.js + Express + SQLite (`server/`), con inicio de sesión propio y actualizaciones en tiempo real (Server-Sent Events). No usa Firebase ni servicios externos.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Desarrollo
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev        # API en :3001 + Vite en :5173 (con proxy de /api)
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+La base de datos se crea automáticamente en `data/app.db`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Producción
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run build      # genera dist/
+npm start          # sirve la API y la app en el mismo puerto (PORT, por defecto 3001)
 ```
+
+Variables de entorno:
+
+| Variable        | Por defecto     | Descripción                        |
+|-----------------|-----------------|------------------------------------|
+| `PORT`          | `3001`          | Puerto del servidor                |
+| `DATABASE_PATH` | `data/app.db`   | Ruta del archivo SQLite            |
+
+> La app necesita un servidor Node que se mantenga encendido y un disco persistente para el archivo SQLite
+> (Render, Railway, Fly.io, un VPS, etc.). Vercel solo ya no sirve, porque no ejecuta servidores persistentes.
+
+Con Docker:
+
+```bash
+docker build -t bible-talks .
+docker run -p 3000:3000 -v bible-talks-data:/data bible-talks
+```
+
+**Copias de seguridad:** basta con copiar el archivo de la base de datos (`DATABASE_PATH`).
+
+## Primer administrador
+
+La primera persona que entre en **Admin** cuando todavía no hay administradores puede asignarse ese rol. Después, los administradores gestionan los roles desde *Admin › Roles de Usuario*.
+
+Como no hay envío de correos, la recuperación de contraseña la hace un administrador: *Admin › Roles de Usuario › Nueva contraseña* asigna una contraseña temporal, y la persona puede cambiarla luego en *Perfil › Editar Perfil*.
+
+## Migrar los datos desde Firebase
+
+1. En Firebase Console › Configuración del proyecto › Cuentas de servicio, genera una clave privada (archivo JSON). **No la subas al repositorio.**
+2. Exporta los datos:
+   ```bash
+   npm install --no-save firebase-admin
+   node scripts/export-firestore.mjs ruta/service-account.json firebase-export.json
+   ```
+3. Impórtalos en la base de datos SQLite (en el servidor donde corre la app, o copia luego `data/app.db`):
+   ```bash
+   npm run import-firebase -- firebase-export.json
+   ```
+4. Las contraseñas de Firebase no se pueden exportar. Cada usuario debe ir a **Registrarse** con su **mismo email**: se activa su cuenta migrada y conserva todos sus datos (personas, grupos, chats…).
+
+El import conserva los IDs originales y se puede ejecutar más de una vez sin duplicar datos.

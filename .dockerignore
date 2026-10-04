@@ -1,0 +1,7 @@
+node_modules
+dist
+data
+.git
+*.json.bak
+firebase-export.json
+service-account*.json

@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { auth, db } from '../lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { useNavigate, Link, Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { Lock, Mail, User, Loader2 } from 'lucide-react';
 
 export default function Register() {
@@ -12,6 +10,7 @@ export default function Register() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+    const { user: currentUser, register } = useAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -19,32 +18,19 @@ export default function Register() {
         setLoading(true);
 
         try {
-            // Create Auth User
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            const user = userCredential.user;
-
-            // Update Display Name
-            await updateProfile(user, {
-                displayName: name
-            });
-
-            // Create User Document in Firestore
-            await setDoc(doc(db, "users", user.uid), {
-                name: name,
-                email: email,
-                username: '@' + name.toLowerCase().replace(/\s+/g, '') + Math.floor(Math.random() * 1000),
-                createdAt: new Date(),
-                role: 'user'
-            });
-
+            await register(name.trim(), email.trim(), password);
             navigate('/');
-        } catch (err: any) {
+        } catch (err) {
             console.error("Registration error:", err);
-            setError('Error al registrarse. ' + err.message);
+            setError(err instanceof Error ? err.message : 'Error al registrarse. Inténtalo de nuevo.');
         } finally {
             setLoading(false);
         }
     };
+
+    if (currentUser && !loading) {
+        return <Navigate to="/" replace />;
+    }
 
     return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
@@ -52,6 +38,7 @@ export default function Register() {
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-bold text-white mb-2">Crear Cuenta</h1>
                     <p className="text-slate-400">Únete a Bible Talks Tracker</p>
+                    <p className="text-xs text-slate-500 mt-2">¿Ya usabas la versión anterior? Regístrate con el mismo email para recuperar tus datos.</p>
                 </div>
 
                 {error && (

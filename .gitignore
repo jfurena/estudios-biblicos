@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local database
+data/
+
+# Firebase migration files (contain private data / credentials)
+firebase-export.json
+service-account*.json

@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { useNavigate, Link, Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { Lock, Mail, Loader2, ArrowLeft } from 'lucide-react';
 
 export default function Login() {
@@ -12,34 +11,34 @@ export default function Login() {
     const [loading, setLoading] = useState(false);
     const [isResetting, setIsResetting] = useState(false);
     const navigate = useNavigate();
+    const { user, login } = useAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setSuccessMessage('');
-        setLoading(true);
 
+        if (isResetting) {
+            // There is no e-mail service: an administrator sets a temporary password
+            setSuccessMessage('Pide a un administrador que te asigne una contraseña temporal desde Admin › Roles de Usuario. Luego podrás cambiarla en tu perfil.');
+            return;
+        }
+
+        setLoading(true);
         try {
-            if (isResetting) {
-                await sendPasswordResetEmail(auth, email);
-                setSuccessMessage('Si el correo existe, recibirás un enlace de recuperación pronto.');
-                // Optionally switch back to login after short delay? 
-                // For now, let user choose when to go back.
-            } else {
-                await signInWithEmailAndPassword(auth, email, password);
-                navigate('/');
-            }
-        } catch (err: any) {
+            await login(email, password);
+            navigate('/');
+        } catch (err) {
             console.error("Auth error:", err);
-            if (isResetting) {
-                setError('Error al enviar correo. Verifica que el email sea correcto.');
-            } else {
-                setError('Error al iniciar sesión. Verifica tus credenciales.');
-            }
+            setError(err instanceof Error ? err.message : 'Error al iniciar sesión. Verifica tus credenciales.');
         } finally {
             setLoading(false);
         }
     };
+
+    if (user && !loading) {
+        return <Navigate to="/" replace />;
+    }
 
     return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
@@ -50,7 +49,7 @@ export default function Login() {
                     </h1>
                     <p className="text-slate-400">
                         {isResetting
-                            ? 'Ingresa tu email para recibir un enlace de recuperación'
+                            ? 'Ingresa tu email para recuperar el acceso'
                             : 'Inicia sesión para continuar'}
                     </p>
                 </div>
@@ -121,7 +120,7 @@ export default function Login() {
                         {loading && <Loader2 className="animate-spin h-4 w-4" />}
                         {loading
                             ? (isResetting ? 'Enviando...' : 'Entrando...')
-                            : (isResetting ? 'Enviar Enlace' : 'Iniciar Sesión')
+                            : (isResetting ? 'Recuperar acceso' : 'Iniciar Sesión')
                         }
                     </button>
 

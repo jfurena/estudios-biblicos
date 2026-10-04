@@ -1,31 +1,42 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, Loader2 } from 'lucide-react';
-import { collection, addDoc } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
+import { api } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
+import { logAudit } from '../../lib/audit';
 
 interface AddStudySidebarProps {
     isOpen: boolean;
     onClose: () => void;
+    existingNames?: string[];
 }
 
-export function AddStudySidebar({ isOpen, onClose }: AddStudySidebarProps) {
+export function AddStudySidebar({ isOpen, onClose, existingNames = [] }: AddStudySidebarProps) {
+    const { user, profile } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [name, setName] = useState('');
+    const [error, setError] = useState('');
 
-    const handleSubmit = async () => {
-        if (!name.trim()) return;
+    const handleSubmit = async (e?: React.FormEvent) => {
+        e?.preventDefault();
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        if (existingNames.some(n => n.toLowerCase() === trimmed.toLowerCase())) {
+            setError('Ya existe un estudio con ese nombre.');
+            return;
+        }
 
         setIsLoading(true);
+        setError('');
         try {
-            await addDoc(collection(db, "bible_studies"), {
-                name: name.trim(),
-                owner: 'N/A', // Default or user input if needed
-                createdAt: new Date()
+            await api.create('bible_studies', {
+                name: trimmed,
+                owner: profile?.name || user?.displayName || 'N/A',
+                createdBy: user?.uid || null,
             });
+            logAudit(`Añadió el estudio: ${trimmed}`);
             onClose();
             setName('');
-            alert("Estudio añadido correctamente");
         } catch (error) {
             console.error("Error adding study: ", error);
             alert("Error al añadir el estudio.");
@@ -81,11 +92,13 @@ export function AddStudySidebar({ isOpen, onClose }: AddStudySidebarProps) {
                                     <input
                                         type="text"
                                         value={name}
-                                        onChange={(e) => setName(e.target.value)}
-                                        placeholder=""
+                                        onChange={(e) => { setName(e.target.value); setError(''); }}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
+                                        placeholder="Ej: La Oración"
                                         autoFocus
                                         className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent transition-all"
                                     />
+                                    {error && <p className="text-sm text-red-400">{error}</p>}
                                 </div>
                             </div>
                         </div>
@@ -100,7 +113,7 @@ export function AddStudySidebar({ isOpen, onClose }: AddStudySidebarProps) {
                                     Cancelar
                                 </button>
                                 <button
-                                    onClick={handleSubmit}
+                                    onClick={() => handleSubmit()}
                                     disabled={isLoading || !name.trim()}
                                     className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white text-slate-950 hover:bg-slate-200 rounded-lg transition-colors shadow-lg shadow-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >

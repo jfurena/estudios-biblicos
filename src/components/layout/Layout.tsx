@@ -1,48 +1,40 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { cn } from '../../lib/utils';
-import { Menu } from 'lucide-react';
+import { Menu, BookOpen } from 'lucide-react';
 
 export function Layout() {
-    const [isDarkMode, setIsDarkMode] = useState(true);
     const [isSidebarOpen, setSidebarOpen] = useState(false);
 
-    useEffect(() => {
-        if (isDarkMode) {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-    }, [isDarkMode]);
-
-    const toggleTheme = () => setIsDarkMode(!isDarkMode);
-
     return (
-        <div className={cn("min-h-screen font-sans bg-background text-foreground transition-colors duration-300 lg:flex", isDarkMode ? "dark" : "")}>
+        <div className="min-h-screen font-sans bg-slate-950 text-foreground lg:flex">
             {/* Mobile Header */}
-            <div className="lg:hidden fixed top-0 w-full z-50 bg-slate-950 border-b border-border/10 px-4 h-16 flex items-center justify-between">
-                <span className="text-lg font-bold text-white tracking-tight">Bible Talks Tracker</span>
-                <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-400 hover:text-white">
+            <div className="lg:hidden fixed top-0 w-full z-30 bg-slate-950 border-b border-slate-800 px-4 h-16 flex items-center justify-between">
+                <span className="flex items-center gap-2 text-lg font-bold text-white tracking-tight">
+                    <BookOpen className="h-5 w-5 text-emerald-400" />
+                    Bible Talks Tracker
+                </span>
+                <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-400 hover:text-white" aria-label="Abrir menú">
                     <Menu className="h-6 w-6" />
                 </button>
             </div>
 
+            {/* Overlay for mobile */}
+            {isSidebarOpen && (
+                <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)}></div>
+            )}
+
             {/* Sidebar - Desktop & Mobile Drawer */}
             <div className={cn(
-                "fixed inset-0 z-40 transform transition-transform duration-300 lg:relative lg:translate-x-0 lg:w-64 lg:block",
+                "fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-300 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:shrink-0",
                 isSidebarOpen ? "translate-x-0" : "-translate-x-full"
             )}>
-                {/* Overlay for mobile */}
-                <div className="fixed inset-0 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)}></div>
-
-                <div className="relative z-50 h-full">
-                    <Sidebar isDarkMode={isDarkMode} toggleTheme={toggleTheme} onClose={() => setSidebarOpen(false)} />
-                </div>
+                <Sidebar onClose={() => setSidebarOpen(false)} />
             </div>
 
             {/* Main Content */}
-            <main className="flex-1 min-h-screen pt-16 lg:pt-0 p-4 lg:p-8 bg-black/95 w-full">
+            <main className="flex-1 min-w-0 min-h-screen pt-20 lg:pt-8 p-4 lg:p-8 bg-black/95">
                 <div className="max-w-7xl mx-auto space-y-6">
                     <Outlet />
                 </div>

@@ -1,165 +1,146 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, startOfWeek, endOfWeek, addMonths, subMonths, isSameDay } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Plus, List, LayoutGrid, Calendar as CalendarIcon, MapPin, Clock } from 'lucide-react';
-import { cn } from '../lib/utils';
-import { motion } from 'framer-motion';
+import { cn, toDate } from '../lib/utils';
+import { api, subscribe } from '../lib/api';
 import { AddEventSidebar } from '../components/schedule/AddEventSidebar';
 import { DayDetailsSidebar } from '../components/schedule/DayDetailsSidebar';
-import { EventDetailsModal, type Event } from '../components/schedule/EventDetailsModal';
+import { EventDetailsModal, type ScheduleEvent } from '../components/schedule/EventDetailsModal';
+import { useAuth } from '../context/AuthContext';
+import { useGroups } from '../hooks/useData';
+import { getEventTypeMeta } from '../lib/constants';
+import type { CalendarEvent } from '../lib/types';
+import { logAudit } from '../lib/audit';
 
-const SAMPLE_EVENTS: Event[] = [
-    {
-        id: '1',
-        title: 'Reunión de Grupo',
-        date: new Date(2025, 11, 22),
-        time: '19:00',
-        location: 'Sala Principal',
-        type: 'service',
-        description: 'Reunión semanal de grupos pequeños para estudio y oración.'
-    },
-    {
-        id: '2',
-        title: 'Servicio de Nochebuena',
-        date: new Date(2025, 11, 24),
-        time: '20:00',
-        location: 'Auditorio Principal',
-        type: 'service',
-        description: 'Celebración especial de Navidad con música y mensaje.'
-    },
-    {
-        id: '3',
-        title: 'Almuerzo Navideño',
-        date: new Date(2025, 11, 25),
-        time: '13:00',
-        location: 'Salón de Eventos',
-        type: 'social',
-        description: 'Compartir navideño para toda la comunidad.'
-    },
-    {
-        id: '4',
-        title: 'Estudio Bíblico: Romanos',
-        date: new Date(2025, 11, 26),
-        time: '18:30',
-        location: 'Aula 3',
-        type: 'study',
-        description: 'Continuamos con el capítulo 8 de Romanos.'
-    },
-    {
-        id: '5',
-        title: 'Servicio Dominical',
-        date: new Date(2025, 11, 28),
-        time: '10:00',
-        location: 'Auditorio Principal',
-        type: 'service',
-        description: 'Servicio general de adoración.'
-    }
-];
+const weekDays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
 export default function Schedule() {
-    const [currentMonth, setCurrentMonth] = useState(new Date(2025, 11, 22));
+    const { user, isAdmin } = useAuth();
+    const { groups } = useGroups();
+
+    const [allEvents, setAllEvents] = useState<ScheduleEvent[]>([]);
+    const [currentMonth, setCurrentMonth] = useState(() => new Date());
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-    const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+    const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
     const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+    const [addEventDate, setAddEventDate] = useState<Date>(() => new Date());
+    const [editingEvent, setEditingEvent] = useState<ScheduleEvent | null>(null);
     const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
 
-    const monthStart = startOfMonth(currentMonth);
-    const monthEnd = endOfMonth(monthStart);
-    const calendarStart = startOfWeek(monthStart);
-    const calendarEnd = endOfWeek(monthEnd);
+    useEffect(() => {
+        return subscribe<CalendarEvent>('events', undefined, (docs) => {
+            const list: ScheduleEvent[] = [];
+            docs.forEach(data => {
+                const dateObj = toDate(data.date);
+                if (dateObj) list.push({ ...data, dateObj });
+            });
+            setAllEvents(list.sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime()));
+        }, (error) => console.error('Error loading events:', error));
+    }, []);
 
+    const groupNames = useMemo(() => Object.fromEntries(groups.map(g => [g.id, g.name])), [groups]);
+    const myGroupIds = useMemo(
+        () => new Set(groups.filter(g => user && g.members?.includes(user.uid)).map(g => g.id)),
+        [groups, user]
+    );
+
+    // My events, events where I'm the companion, and events of my groups
+    const events = useMemo(() => allEvents.filter(e =>
+        e.userId === user?.uid ||
+        e.companionId === user?.uid ||
+        (e.groupId && myGroupIds.has(e.groupId)) ||
+        (!e.userId && !e.groupId)
+    ), [allEvents, user, myGroupIds]);
+
+    // Keep the open modal in sync with live data (e.g. after editing)
+    const liveSelectedEvent = selectedEvent ? events.find(e => e.id === selectedEvent.id) || null : null;
+
+    const canEdit = (event: ScheduleEvent) => isAdmin || !event.userId || event.userId === user?.uid;
+
+    const monthStart = startOfMonth(currentMonth);
     const days = eachDayOfInterval({
-        start: calendarStart,
-        end: calendarEnd
+        start: startOfWeek(monthStart),
+        end: endOfWeek(endOfMonth(monthStart))
     });
 
-    const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-    const handlePrevMonth = () => setCurrentMonth(prev => subMonths(prev, 1));
-    const handleNextMonth = () => setCurrentMonth(prev => addMonths(prev, 1));
-
-    const handleDayClick = (day: Date) => {
-        setSelectedDate(day);
-    };
-
-    const handleEventClick = (event: Event) => {
-        setSelectedEvent(event);
-    }
-
-    // Filter events for current month in list view
-    const currentMonthEvents = SAMPLE_EVENTS.filter(event =>
-        isSameMonth(event.date, currentMonth)
-    ).sort((a, b) => a.date.getTime() - b.date.getTime());
-
-    // Get events for a specific day
-    const getEventsForDay = (day: Date) => {
-        return SAMPLE_EVENTS.filter(event => isSameDay(event.date, day));
-    };
-
-    // Events for selected date (for sidebar)
+    const currentMonthEvents = events.filter(event => isSameMonth(event.dateObj, currentMonth));
+    const getEventsForDay = (day: Date) => events.filter(event => isSameDay(event.dateObj, day));
     const selectedDateEvents = selectedDate ? getEventsForDay(selectedDate) : [];
 
+    const openAddEvent = (date: Date) => {
+        setEditingEvent(null);
+        setAddEventDate(date);
+        setIsAddEventOpen(true);
+    };
+
+    const handleDelete = async (event: ScheduleEvent) => {
+        if (!window.confirm(`¿Eliminar el evento "${event.title || 'Evento'}"?`)) return;
+        try {
+            await api.remove('events', event.id);
+            logAudit(`Eliminó el evento: ${event.title || ''}`);
+            setSelectedEvent(null);
+        } catch (error) {
+            console.error('Error deleting event:', error);
+            alert('Error al eliminar el evento.');
+        }
+    };
+
     return (
-        <div className="space-y-6 h-[calc(100vh-8rem)] flex flex-col">
-            <div className='flex flex-col md:flex-row items-center justify-between gap-4'>
+        <div className="space-y-6 flex flex-col lg:h-[calc(100vh-4rem)]">
+            <div className='flex flex-col xl:flex-row xl:items-center justify-between gap-4'>
                 <div>
-                    <h1 className="text-3xl font-bold text-white tracking-tight">Schedule</h1>
-                    <p className="text-slate-400">Weekly and monthly agenda at a glance.</p>
+                    <h1 className="text-3xl font-bold text-white tracking-tight">Agenda</h1>
+                    <p className="text-slate-400">Tus estudios, reuniones y eventos de grupo.</p>
                 </div>
 
-                <div className="flex items-center gap-4">
-                    {/* View Toggle */}
+                <div className="flex flex-wrap items-center gap-3">
                     <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
                         <button
                             onClick={() => setViewMode('calendar')}
-                            className={cn(
-                                "p-2 rounded-md transition-all",
-                                viewMode === 'calendar' ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-white"
-                            )}
-                            title="Calendar View"
+                            className={cn("p-2 rounded-md transition-all", viewMode === 'calendar' ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-white")}
+                            title="Vista de calendario"
                         >
                             <LayoutGrid className="h-4 w-4" />
                         </button>
                         <button
                             onClick={() => setViewMode('list')}
-                            className={cn(
-                                "p-2 rounded-md transition-all",
-                                viewMode === 'list' ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-white"
-                            )}
-                            title="List View"
+                            className={cn("p-2 rounded-md transition-all", viewMode === 'list' ? "bg-slate-800 text-white shadow-sm" : "text-slate-400 hover:text-white")}
+                            title="Vista de lista"
                         >
                             <List className="h-4 w-4" />
                         </button>
                     </div>
 
-                    <div className="flex items-center gap-2 bg-slate-900 rounded-lg p-1 border border-slate-800">
-                        <button onClick={handlePrevMonth} className="p-2 hover:bg-slate-800 rounded-md text-slate-400 hover:text-white transition-colors">
+                    <div className="flex items-center gap-1 bg-slate-900 rounded-lg p-1 border border-slate-800">
+                        <button onClick={() => setCurrentMonth(prev => subMonths(prev, 1))} className="p-2 hover:bg-slate-800 rounded-md text-slate-400 hover:text-white transition-colors" title="Mes anterior">
                             <ChevronLeft className="h-5 w-5" />
                         </button>
-                        <div className="text-center px-4 w-32">
-                            <span className="block text-sm font-semibold text-white">{format(currentMonth, 'MMMM')}</span>
+                        <button onClick={() => setCurrentMonth(new Date())} className="text-center px-3 w-32" title="Ir a hoy">
+                            <span className="block text-sm font-semibold text-white capitalize">{format(currentMonth, 'MMMM', { locale: es })}</span>
                             <span className="block text-xs font-bold text-slate-500">{format(currentMonth, 'yyyy')}</span>
-                        </div>
-                        <button onClick={handleNextMonth} className="p-2 hover:bg-slate-800 rounded-md text-slate-400 hover:text-white transition-colors">
+                        </button>
+                        <button onClick={() => setCurrentMonth(prev => addMonths(prev, 1))} className="p-2 hover:bg-slate-800 rounded-md text-slate-400 hover:text-white transition-colors" title="Mes siguiente">
                             <ChevronRight className="h-5 w-5" />
                         </button>
                     </div>
 
                     <button
-                        onClick={() => setIsAddEventOpen(true)}
-                        className="bg-white text-black hover:bg-slate-200 px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                        onClick={() => openAddEvent(new Date())}
+                        className="bg-white text-black hover:bg-slate-200 px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
                     >
                         <Plus className="h-4 w-4" />
-                        <span className="hidden sm:inline">Añadir Evento</span>
+                        <span>Añadir Evento</span>
                     </button>
                 </div>
             </div>
 
-            <div className="flex-1 bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden backdrop-blur-sm shadow-xl flex flex-col relative">
+            <div className="flex-1 min-h-0 bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden backdrop-blur-sm shadow-xl flex flex-col">
                 {viewMode === 'calendar' ? (
                     <>
                         <div className="grid grid-cols-7 border-b border-slate-800">
                             {weekDays.map((day) => (
-                                <div key={day} className="py-3 text-center text-sm font-medium text-slate-400 border-r border-slate-800 last:border-r-0">
+                                <div key={day} className="py-3 text-center text-xs sm:text-sm font-medium text-slate-400 border-r border-slate-800 last:border-r-0">
                                     {day}
                                 </div>
                             ))}
@@ -170,11 +151,10 @@ export default function Schedule() {
                                 return (
                                     <div
                                         key={day.toISOString()}
-                                        onClick={() => handleDayClick(day)}
+                                        onClick={() => setSelectedDate(day)}
                                         className={cn(
-                                            "min-h-[100px] border-b border-r border-slate-800 p-2 transition-colors hover:bg-slate-800/20 relative cursor-pointer",
+                                            "min-h-[80px] sm:min-h-[100px] border-b border-r border-slate-800 p-1 sm:p-2 transition-colors hover:bg-slate-800/20 cursor-pointer [&:nth-child(7n)]:border-r-0",
                                             !isSameMonth(day, monthStart) && "bg-slate-950/50 opacity-50",
-                                            "last:border-r-0",
                                             selectedDate && isSameDay(day, selectedDate) && "bg-slate-800/40"
                                         )}
                                     >
@@ -188,24 +168,17 @@ export default function Schedule() {
 
                                         <div className="space-y-1">
                                             {dayEvents.slice(0, 3).map(event => (
-                                                <motion.div
+                                                <button
                                                     key={event.id}
-                                                    initial={{ opacity: 0, scale: 0.9 }}
-                                                    animate={{ opacity: 1, scale: 1 }}
-                                                    className={cn(
-                                                        "px-1.5 py-1 rounded text-[10px] font-medium truncate",
-                                                        event.type === 'service' ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
-                                                            event.type === 'study' ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
-                                                                "bg-slate-500/10 text-slate-400 border border-slate-500/20"
-                                                    )}
+                                                    onClick={(e) => { e.stopPropagation(); setSelectedEvent(event); }}
+                                                    className={cn("w-full text-left px-1.5 py-1 rounded text-[10px] font-medium truncate border", getEventTypeMeta(event.type).className)}
+                                                    title={event.title}
                                                 >
-                                                    {event.title}
-                                                </motion.div>
+                                                    <span className="hidden sm:inline">{event.time ? `${event.time} ` : ''}</span>{event.title || 'Evento'}
+                                                </button>
                                             ))}
                                             {dayEvents.length > 3 && (
-                                                <div className="text-[10px] text-slate-500 pl-1">
-                                                    +{dayEvents.length - 3} más
-                                                </div>
+                                                <div className="text-[10px] text-slate-500 pl-1">+{dayEvents.length - 3} más</div>
                                             )}
                                         </div>
                                     </div>
@@ -216,53 +189,45 @@ export default function Schedule() {
                 ) : (
                     <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
                         {currentMonthEvents.length > 0 ? (
-                            currentMonthEvents.map((event) => (
-                                <motion.div
-                                    key={event.id}
-                                    onClick={() => handleEventClick(event)}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:border-slate-700 hover:bg-slate-800/50 transition-all cursor-pointer group"
-                                >
-                                    <div className={cn(
-                                        "h-12 w-12 shrink-0 rounded-lg flex flex-col items-center justify-center border font-bold",
-                                        event.type === 'service' ? "bg-blue-500/10 border-blue-500/20 text-blue-500" :
-                                            event.type === 'study' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" :
-                                                "bg-slate-500/10 border-slate-500/20 text-slate-500"
-                                    )}>
-                                        <span className="text-xs uppercase">{format(event.date, 'MMM')}</span>
-                                        <span className="text-lg leading-none">{format(event.date, 'd')}</span>
-                                    </div>
+                            currentMonthEvents.map((event) => {
+                                const meta = getEventTypeMeta(event.type);
+                                return (
+                                    <div
+                                        key={event.id}
+                                        onClick={() => setSelectedEvent(event)}
+                                        className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:border-slate-700 hover:bg-slate-800/50 transition-all cursor-pointer group"
+                                    >
+                                        <div className={cn("h-12 w-12 shrink-0 rounded-lg flex flex-col items-center justify-center border font-bold", meta.className)}>
+                                            <span className="text-xs uppercase">{format(event.dateObj, 'MMM', { locale: es })}</span>
+                                            <span className="text-lg leading-none">{format(event.dateObj, 'd')}</span>
+                                        </div>
 
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <h3 className="text-lg font-semibold text-white truncate group-hover:text-emerald-400 transition-colors">{event.title}</h3>
-                                            <span className={cn(
-                                                "px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold",
-                                                event.type === 'service' ? "bg-blue-500/10 text-blue-400" :
-                                                    event.type === 'study' ? "bg-emerald-500/10 text-emerald-400" :
-                                                        "bg-slate-500/10 text-slate-400"
-                                            )}>
-                                                {event.type}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-4 text-sm text-slate-400">
-                                            <div className="flex items-center gap-1.5">
-                                                <Clock className="h-3.5 w-3.5" />
-                                                <span>{event.time}</span>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h3 className="text-lg font-semibold text-white truncate group-hover:text-emerald-400 transition-colors">{event.title || 'Evento'}</h3>
+                                                <span className={cn("px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold border shrink-0", meta.className)}>
+                                                    {meta.label}
+                                                </span>
                                             </div>
-                                            <div className="flex items-center gap-1.5">
-                                                <MapPin className="h-3.5 w-3.5" />
-                                                <span className="truncate">{event.location}</span>
+                                            <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400">
+                                                <div className="flex items-center gap-1.5">
+                                                    <Clock className="h-3.5 w-3.5" />
+                                                    <span>{event.time || 'Sin hora'}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    <MapPin className="h-3.5 w-3.5 shrink-0" />
+                                                    <span className="truncate">{event.location || 'Sin ubicación'}</span>
+                                                </div>
+                                                {event.groupId && groupNames[event.groupId] && <span className="text-slate-500">{groupNames[event.groupId]}</span>}
                                             </div>
                                         </div>
                                     </div>
-                                </motion.div>
-                            ))
+                                );
+                            })
                         ) : (
-                            <div className="h-full flex flex-col items-center justify-center text-slate-500">
+                            <div className="h-full py-16 flex flex-col items-center justify-center text-slate-500">
                                 <CalendarIcon className="h-12 w-12 mb-4 opacity-50" />
-                                <p>No events found for {format(currentMonth, 'MMMM yyyy')}</p>
+                                <p>No hay eventos en {format(currentMonth, "MMMM 'de' yyyy", { locale: es })}</p>
                             </div>
                         )}
                     </div>
@@ -274,28 +239,35 @@ export default function Schedule() {
                 onClose={() => setSelectedDate(null)}
                 date={selectedDate}
                 onAddEvent={() => {
-                    setIsAddEventOpen(true);
+                    if (selectedDate) openAddEvent(selectedDate);
                     setSelectedDate(null);
                 }}
                 events={selectedDateEvents}
                 onEventClick={(event) => {
                     setSelectedEvent(event);
-                    setSelectedDate(null); // Close sidebar when opening modal
+                    setSelectedDate(null);
                 }}
             />
 
             <AddEventSidebar
                 isOpen={isAddEventOpen}
-                onClose={() => setIsAddEventOpen(false)}
-                selectedDate={selectedDate || new Date()}
+                onClose={() => { setIsAddEventOpen(false); setEditingEvent(null); }}
+                selectedDate={addEventDate}
+                event={editingEvent}
             />
 
             <EventDetailsModal
-                isOpen={!!selectedEvent}
+                isOpen={!!liveSelectedEvent}
                 onClose={() => setSelectedEvent(null)}
-                event={selectedEvent}
-                onEdit={(event) => console.log('Edit', event)}
-                onDelete={(id) => console.log('Delete', id)}
+                event={liveSelectedEvent}
+                groupName={liveSelectedEvent?.groupId ? groupNames[liveSelectedEvent.groupId] : undefined}
+                canEdit={liveSelectedEvent ? canEdit(liveSelectedEvent) : false}
+                onEdit={(event) => {
+                    setSelectedEvent(null);
+                    setEditingEvent(event);
+                    setIsAddEventOpen(true);
+                }}
+                onDelete={handleDelete}
             />
         </div>
     );

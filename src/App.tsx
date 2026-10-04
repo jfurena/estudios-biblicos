@@ -1,18 +1,24 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/layout/Layout';
-import Dashboard from './pages/Dashboard';
-import Studies from './pages/Studies';
-import People from './pages/People';
-import Schedule from './pages/Schedule';
-import Profile from './pages/Profile';
-import GroupDetail from './pages/GroupDetail';
-import Admin from './pages/Admin';
-import BibleGuide from './pages/BibleGuide';
-import Chat from './pages/Chat';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
+
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Studies = lazy(() => import('./pages/Studies'));
+const People = lazy(() => import('./pages/People'));
+const Schedule = lazy(() => import('./pages/Schedule'));
+const Profile = lazy(() => import('./pages/Profile'));
+const GroupDetail = lazy(() => import('./pages/GroupDetail'));
+const Admin = lazy(() => import('./pages/Admin'));
+const BibleGuide = lazy(() => import('./pages/BibleGuide'));
+const Chat = lazy(() => import('./pages/Chat'));
+
+function PageLoader() {
+  return <div className="flex items-center justify-center py-20 text-slate-500">Cargando...</div>;
+}
 
 function App() {
   return (
@@ -27,17 +33,19 @@ function App() {
               <Layout />
             </ProtectedRoute>
           }>
-            <Route index element={<Dashboard />} />
-            <Route path="people" element={<People />} />
-            <Route path="groups/:id" element={<GroupDetail />} />
-            <Route path="studies" element={<Studies />} />
-            <Route path="schedule" element={<Schedule />} />
-            <Route path="guide" element={<BibleGuide />} />
-            <Route path="messages" element={<Chat />} />
-            <Route path="profile" element={<Profile />} />
-            <Route path="profile/:userId" element={<Profile />} />
-            <Route path="admin" element={<Admin />} />
+            <Route index element={<Suspense fallback={<PageLoader />}><Dashboard /></Suspense>} />
+            <Route path="people" element={<Suspense fallback={<PageLoader />}><People /></Suspense>} />
+            <Route path="groups/:id" element={<Suspense fallback={<PageLoader />}><GroupDetail /></Suspense>} />
+            <Route path="studies" element={<Suspense fallback={<PageLoader />}><Studies /></Suspense>} />
+            <Route path="schedule" element={<Suspense fallback={<PageLoader />}><Schedule /></Suspense>} />
+            <Route path="guide" element={<Suspense fallback={<PageLoader />}><BibleGuide /></Suspense>} />
+            <Route path="messages" element={<Suspense fallback={<PageLoader />}><Chat /></Suspense>} />
+            <Route path="profile" element={<Suspense fallback={<PageLoader />}><Profile /></Suspense>} />
+            <Route path="profile/:userId" element={<Suspense fallback={<PageLoader />}><Profile /></Suspense>} />
+            <Route path="admin" element={<Suspense fallback={<PageLoader />}><Admin /></Suspense>} />
           </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
